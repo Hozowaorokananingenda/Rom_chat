@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: #f4f4f9;
+            padding: 10px;
+            display: none; /* Menyembunyikan chat container sampai login */
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 10px;
+        }
+        .message {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .message .text {
+            max-width: 60%;
+            background: #d3f8d3;
+            padding: 10px;
+            border-radius: 10px;
+            margin-left: 10px;
+            word-wrap: break-word;
+        }
+        .message .text.own {
+            background: #cfe2ff;
+            margin-left: auto;
+        }
+        .message .image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        .message .image.own {
+            margin-left: auto;
+        }
+        .input-container {
+            display: flex;
+            flex-direction: column;
+        }
+        .input-container input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        .input-container input[type="file"] {
+            margin-bottom: 10px;
+        }
+        .input-container button {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .input-container button:hover {
+            background: #0056b3;
+        }
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f4f4f9;
+        }
+        .login-container input {
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+        }
+        .login-container button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .login-container button:hover {
+            background: #0056b3;
+        }
+        .login-container p {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container" id="loginContainer">
+        <input type="text" id="username" placeholder="Enter your name">
+        <button onclick="login()">Login</button>
+        <p id="errorMessage">Nama yang Anda masukkan tidak sesuai dengan yang sebelumnya!</p>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message...">
+            <input type="file" id="fileInput" accept="image/*">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Fungsi untuk memuat riwayat chat
+        function loadChatHistory() {
+            const chatBox = document.getElementById('chatBox');
+            const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            
+            // Tampilkan chat yang ada
+            chatBox.innerHTML = chatHistory.map(chat => {
+                const ownMessage = chat.sender === localStorage.getItem('username');
+                if (chat.type === 'image') {
+                    return `<div class="message ${ownMessage ? 'own' : ''}">
+                                <img src="${chat.message}" class="image ${ownMessage ? 'own' : ''}">
+                            </div>`;
+                } else {
+                    return `<div class="message ${ownMessage ? 'own' : ''}">
+                                <div class="text ${ownMessage ? 'own' : ''}">${chat.message}</div>
+                            </div>`;
+                }
+            }).join('');
+            
+            // Scroll ke bawah
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Fungsi untuk mengirim pesan
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const fileInput = document.getElementById('fileInput');
+            const chatBox = document.getElementById('chatBox');
+            const message = messageInput.value.trim();
+            const file = fileInput.files[0];
+
+            const sender = localStorage.getItem('username'); // Ambil nama dari LocalStorage
+
+            if (message || file) {
+                const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+
+                if (file) {
+                    // Upload gambar
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const fileData = e.target.result;
+                        // Tambahkan gambar ke riwayat
+                        chatHistory.push({ sender, message: fileData, type: 'image' });
+                        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+                        displayMessage(sender, fileData, 'image');
+                    };
+                    reader.readAsDataURL(file); // Membaca gambar sebagai data URL
+                } else {
+                    // Tambahkan pesan teks
+                    chatHistory.push({ sender, message, type: 'text' });
+                    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+                    displayMessage(sender, message, 'text');
+                }
+
+                // Bersihkan input
+                messageInput.value = '';
+                fileInput.value = '';
+
+                // Scroll ke bawah
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        // Fungsi untuk menampilkan pesan
+        function displayMessage(sender, message, type) {
+            const chatBox = document.getElementById('chatBox');
+            const ownMessage = sender === localStorage.getItem('username');
+            const newMessage = document.createElement('div');
+            
+            if (type === 'image') {
+                newMessage.classList.add('message', ownMessage ? 'own' : '');
+                newMessage.innerHTML = `<img src="${message}" class="image ${ownMessage ? 'own' : ''}">`;
+            } else {
+                newMessage.classList.add('message', ownMessage ? 'own' : '');
+                newMessage.innerHTML = `<div class="text ${ownMessage ? 'own' : ''}">${message}</div>`;
+            }
+            
+            chatBox.appendChild(newMessage);
+        }
+
+        // Fungsi untuk login
+        function login() {
+            const username = document.getElementById('username').value.trim();
+            const storedUsername = localStorage.getItem('username');
+
+            // Cek jika username sudah ada di LocalStorage dan cocok
+            if (!storedUsername) {
+                // Jika belum ada nama terdaftar
+                if (username) {
+                    // Simpan nama pengguna di LocalStorage
+                    localStorage.setItem('username', username);
+                    // Tampilkan room chat dan sembunyikan form login
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('chatContainer').style.display = 'flex';
+                    
+                    // Muat riwayat chat
+                    loadChatHistory();
+                } else {
+                    alert('Please enter a valid name.');
+                }
+            } else {
+                // Jika sudah ada nama di LocalStorage, cek apakah sama
+                if (username === storedUsername) {
+                    // Nama cocok, lanjutkan ke room chat
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('chatContainer').style.display = 'flex';
+                    // Muat riwayat chat
+                    loadChatHistory();
+                } else {
+                    // Nama tidak cocok, tampilkan error
+                    document.getElementById('errorMessage').style.display = 'block';
+                }
+            }
+        }
+
+        // Cek jika sudah login atau belum
+        window.onload = function() {
+            const storedUsername = localStorage.getItem('username');
+
+            if (storedUsername) {
+                // Jika nama pengguna sudah ada di LocalStorage, langsung masuk ke chat room
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('chatContainer').style.display = 'flex';
+                loadChatHistory(); // Muat riwayat chat jika ada
+            } else {
+                // Tampilkan form login jika belum ada nama pengguna di LocalStorage
+                document.getElementById('loginContainer').style.display = 'flex';
+            }
+        }
+    </script>
+</body>
+</html>
